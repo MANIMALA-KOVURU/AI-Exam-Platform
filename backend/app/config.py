@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_minutes: int = 60
     refresh_token_days: int = 7
-    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001"
     frontend_url: str = "http://localhost:3000"
     openai_api_key: str = ""
     initial_admin_email: str = "admin@aiexamplatform.com"

@@ -9,5 +9,6 @@ const withPWA = nextPWA({
 
 export default withPWA({
   reactStrictMode: true,
+  output: 'standalone',
   outputFileTracingRoot: process.cwd(),
 });

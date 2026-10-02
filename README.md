@@ -29,8 +29,8 @@ This monorepo contains the initial production-style foundation for an AI-powered
    cd backend
    python -m venv .venv
    .venv\Scripts\activate
-   pip install -r requirements.txt
-   uvicorn app.main:app --reload
+   python -m pip install -r requirements.txt
+   python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 4. Frontend:
    cd frontend
    npm install
@@ -39,6 +39,14 @@ This monorepo contains the initial production-style foundation for an AI-powered
    - Frontend: http://localhost:3000
    - Backend: http://localhost:8000
    - API docs: http://localhost:8000/docs
+
+Next.js uses port 3000 by default and automatically selects another available port (such as 3001) if needed. The backend allows both ports for local development.
+
+## Windows desktop app
+
+Install the root Electron dependencies with `npm install`, then install the frontend dependencies with `npm ci --prefix frontend`. Double-click `start-app.bat` or run `npm run desktop` from the project root. Electron starts FastAPI and Next.js, waits for both services, and stops them when the window closes. The development launcher requires Node.js 20.9+ and the existing Python environment at `backend/.venv`.
+
+To create a Windows installer, run `npm run dist:win` on Windows. The backend build requires the environment at `backend/.venv`; the script installs PyInstaller there if needed. The installer is written to `dist/AI Exam Platform Setup.exe`. Its installer offers a desktop shortcut, and the installed app bundles the local Next.js server and FastAPI backend.
 
 ## Environment variables
 

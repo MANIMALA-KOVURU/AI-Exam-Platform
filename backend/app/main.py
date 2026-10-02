@@ -211,6 +211,15 @@ def create_tables() -> None:
         ensure_default_questions(startup_db)
 
 
+@app.get("/")
+def root() -> Dict[str, str]:
+    return {
+        "service": "aiexamplatform-api",
+        "message": "AIExamPlatform API is running.",
+        "docs": "/docs",
+    }
+
+
 @app.get("/health", response_model=HealthResponse)
 @app.get("/api/v1/health", response_model=HealthResponse)
 def health() -> HealthResponse:

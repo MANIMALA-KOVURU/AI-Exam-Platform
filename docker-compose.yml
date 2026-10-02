@@ -15,7 +15,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://exam:exam@db:5432/aiexam
       JWT_SECRET: change-this-development-secret
-      CORS_ORIGINS: http://localhost:3000
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001
     ports:
       - "8000:8000"
     depends_on:
@@ -24,7 +24,7 @@ services:
   frontend:
     build: ./frontend
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:8000
     ports:
       - "3000:3000"
     depends_on:
