@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class HealthResponse(BaseModel):
@@ -24,14 +24,23 @@ class HeartbeatPayload(BaseModel):
 
 
 class UserCreate(BaseModel):
-    name: str
-    email: str
-    password: str
+    name: str = Field(..., min_length=1, max_length=200)
+    email: EmailStr
+    password: str = Field(..., min_length=8)
     role: str = "student"
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        allowed_roles = {"student", "examiner", "admin"}
+        if normalized not in allowed_roles:
+            raise ValueError("Role must be one of: student, examiner, admin")
+        return normalized
 
 
 class UserLogin(BaseModel):
-    email: str
+    email: EmailStr
     password: str
 
 
@@ -51,6 +60,18 @@ class AuthResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+
+
+class AdminDashboardSummary(BaseModel):
+    total_users: int
+    total_students: int
+    total_examiners: int
+    total_admins: int
+    total_exams: int
+    published_exams: int
+    total_questions: int
+    recent_users: List[dict] = Field(default_factory=list)
+    recent_exams: List[dict] = Field(default_factory=list)
 
 
 class QuestionCreate(BaseModel):

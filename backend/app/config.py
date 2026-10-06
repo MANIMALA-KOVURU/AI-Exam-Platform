@@ -42,8 +42,9 @@ class Settings(BaseSettings):
             raise ValueError("Production JWT secrets must contain at least 32 characters")
         if self.jwt_secret == self.jwt_refresh_secret:
             raise ValueError("Production access and refresh JWT secrets must be different")
-        if len(self.initial_admin_password) < 12 or self.initial_admin_password == "Admin@123":
-            raise ValueError("Production INITIAL_ADMIN_PASSWORD must contain at least 12 characters")
+        if self.initial_admin_email and self.initial_admin_password:
+            if len(self.initial_admin_password) < 12:
+                raise ValueError("Production INITIAL_ADMIN_PASSWORD must contain at least 12 characters")
         if not self.cors_list or "*" in self.cors_list:
             raise ValueError("Production CORS_ORIGINS must list explicit frontend origins")
         if self.frontend_url not in self.cors_list:

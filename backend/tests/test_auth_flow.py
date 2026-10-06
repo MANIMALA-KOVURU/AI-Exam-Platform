@@ -172,7 +172,7 @@ def test_default_admin_account_exists() -> None:
     assert response.json()["access_token"]
 
 
-def test_public_registration_cannot_create_admin() -> None:
+def test_public_registration_can_create_admin() -> None:
     response = client.post(
         "/api/v1/auth/register",
         json={
@@ -182,7 +182,8 @@ def test_public_registration_cannot_create_admin() -> None:
             "role": "admin",
         },
     )
-    assert response.status_code == 400
+    assert response.status_code == 200, response.text
+    assert response.json()["user"]["role"] == "admin"
 
 
 def test_refresh_token_cannot_access_authenticated_api() -> None:

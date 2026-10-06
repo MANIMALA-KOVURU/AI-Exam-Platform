@@ -30,9 +30,9 @@ const recentResults = [
 export default function StudentDashboardPage() {
   return (
     <AppShell
-      title="Welcome back, Asha"
+      title="Welcome back, Manimala"
       subtitle="Here’s what’s happening with your examinations."
-      userName="Asha K"
+      userName="Manimala"
       role="Student"
       navItems={studentNav}
     >

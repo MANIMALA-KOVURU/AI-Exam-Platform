@@ -5,8 +5,9 @@ import { FormEvent, useState } from 'react';
 import { API_URL } from '../api';
 
 function dashboardForRole(role: string) {
-  if (role === 'admin') return '/admin/dashboard';
-  if (role === 'examiner') return '/examiner/dashboard';
+  const normalizedRole = String(role || '').trim().toLowerCase();
+  if (normalizedRole === 'admin') return '/admin/dashboard';
+  if (normalizedRole === 'examiner') return '/examiner/dashboard';
   return '/student/dashboard';
 }
 
@@ -83,6 +84,7 @@ export default function RegisterPage() {
                 <select id="role" value={role} onChange={(event) => setRole(event.target.value)}>
                   <option value="student">Student</option>
                   <option value="examiner">Examiner</option>
+                  <option value="admin">Admin</option>
                 </select>
               </div>
               {error && <p role="alert" className="form-error">{error}</p>}

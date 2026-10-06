@@ -14,9 +14,9 @@ from sqlalchemy.orm import Session
 from .auth import create_access_token, create_refresh_token, decode_token, hash_password, verify_password
 from .config import get_settings
 from .database import Base, SessionLocal, engine, get_db
-from .models import Exam, Question, QuestionAttachment, QuestionOption, QuestionType, Subject, User, UserRole
+from .models import Exam, ExamStatus, Question, QuestionAttachment, QuestionOption, QuestionType, Subject, User, UserRole
 from .question_seed import ensure_default_questions
-from .schemas import AuthResponse, ExamCreate, ExamOut, ExamUpdate, HealthResponse, HeartbeatPayload, QuestionCreate, QuestionOut, QuestionUpdate, SubjectOut, TokenResponse, UserCreate, UserLogin, UserOut
+from .schemas import AdminDashboardSummary, AuthResponse, ExamCreate, ExamOut, ExamUpdate, HealthResponse, HeartbeatPayload, QuestionCreate, QuestionOut, QuestionUpdate, SubjectOut, TokenResponse, UserCreate, UserLogin, UserOut
 
 settings = get_settings()
 security = HTTPBearer()
@@ -42,6 +42,16 @@ def _normalize_exam_datetime(raw_value: Optional[str]) -> Optional[datetime]:
         return datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid datetime value: {raw_value}") from exc
+
+
+def _normalize_role(value: Optional[str]) -> str:
+    if value is None:
+        return UserRole.student.value
+    normalized = value.strip().lower()
+    allowed = {UserRole.student.value, UserRole.examiner.value, UserRole.admin.value}
+    if normalized not in allowed:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Role must be student, examiner, or admin.")
+    return normalized
 
 
 def _validate_exam_date_range(start_time: Optional[datetime], end_time: Optional[datetime]) -> None:
@@ -165,12 +175,16 @@ def _serialize_question(question: Question, db: Session) -> QuestionOut:
 
 
 def ensure_default_admin_user() -> None:
+    if not DEFAULT_ADMIN_EMAIL or not settings.initial_admin_password:
+        return
+
     with SessionLocal() as db:
         existing = db.execute(select(User).where(User.email == DEFAULT_ADMIN_EMAIL)).scalar_one_or_none()
         if existing is not None:
-            if settings.environment.lower() == "production" and verify_password("Admin@123", existing.password_hash):
-                existing.password_hash = hash_password(settings.initial_admin_password)
-                db.commit()
+            if existing.role != UserRole.admin:
+                existing.role = UserRole.admin
+            existing.password_hash = hash_password(settings.initial_admin_password)
+            db.commit()
             return
 
         db.add(
@@ -232,15 +246,10 @@ def register_user(payload: UserCreate, db: Session = Depends(get_db)) -> AuthRes
     if existing is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
 
-    normalized_role = payload.role.strip().lower()
-    if normalized_role not in {UserRole.student.value, UserRole.examiner.value}:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Public registration is limited to student and examiner accounts.",
-        )
+    normalized_role = _normalize_role(payload.role)
 
     user = User(
-        name=payload.name,
+        name=payload.name.strip(),
         email=payload.email,
         password_hash=hash_password(payload.password),
         role=normalized_role,
@@ -312,12 +321,69 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
 
 
 def require_roles(*allowed_roles: str):
+    allowed = {role.strip().lower() for role in allowed_roles if role}
+
     def _require(user: User = Depends(get_current_user)) -> User:
-        if user.role not in allowed_roles:
+        actual_role = user.role.strip().lower() if isinstance(user.role, str) else str(user.role).strip().lower()
+        if actual_role not in allowed:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
         return user
 
     return _require
+
+
+@app.get("/api/v1/admin/dashboard", response_model=AdminDashboardSummary)
+def get_admin_dashboard_summary(db: Session = Depends(get_db), user: User = Depends(require_roles("admin"))) -> AdminDashboardSummary:
+    recent_users = db.execute(select(User).order_by(User.created_at.desc()).limit(5)).scalars().all()
+    recent_exams = db.execute(select(Exam).order_by(Exam.created_at.desc()).limit(5)).scalars().all()
+
+    return AdminDashboardSummary(
+        total_users=db.query(User).count(),
+        total_students=db.query(User).filter(User.role == UserRole.student.value).count(),
+        total_examiners=db.query(User).filter(User.role == UserRole.examiner.value).count(),
+        total_admins=db.query(User).filter(User.role == UserRole.admin.value).count(),
+        total_exams=db.query(Exam).count(),
+        published_exams=db.query(Exam).filter(Exam.status == ExamStatus.published.value).count(),
+        total_questions=db.query(Question).count(),
+        recent_users=[
+            {
+                "id": str(entry.id),
+                "name": entry.name,
+                "email": entry.email,
+                "role": entry.role,
+                "created_at": entry.created_at.isoformat() if entry.created_at else None,
+                "is_active": entry.is_active,
+            }
+            for entry in recent_users
+        ],
+        recent_exams=[
+            {
+                "id": str(entry.id),
+                "title": entry.title,
+                "subject_id": entry.subject_id,
+                "status": entry.status,
+                "created_at": entry.created_at.isoformat() if entry.created_at else None,
+                "created_by": str(entry.created_by),
+            }
+            for entry in recent_exams
+        ],
+    )
+
+
+@app.get("/api/v1/admin/users", response_model=List[UserOut])
+def list_admin_users(db: Session = Depends(get_db), user: User = Depends(require_roles("admin"))) -> List[UserOut]:
+    users = db.execute(select(User).order_by(User.created_at.desc())).scalars().all()
+    return [
+        UserOut(
+            id=str(entry.id),
+            name=entry.name,
+            email=entry.email,
+            role=entry.role,
+            preferred_language=entry.preferred_language,
+            is_active=entry.is_active,
+        )
+        for entry in users
+    ]
 
 
 def _list_question_records(db: Session, subject: Optional[str] = None) -> List[QuestionOut]:
